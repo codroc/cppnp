@@ -1,38 +1,38 @@
 #include "channel.h"
 
-#include <sys/epoll.h>
-#include <stdlib.h>
-#include <errno.h>
-#include <string.h>
+#include "sys/epoll.h"
 
-#include <string>
-#include <iostream>
+#include "declare.h"
 
-#include "call_back.h"
-Channel::Channel(int epollfd, int sockfd) : _epollfd(epollfd), _sockfd(sockfd), _Revents(0), _callback(NULL), _event(0) {}
+Channel::Channel(int epollfd, int sockfd) :
+    _epollfd(epollfd),
+    _sockfd(sockfd),
+    _events(0),
+    _revents(0),
+    _pchannel_callback(NULL)
+{}
+
 Channel::~Channel(){}
 
+void Channel::set_callback(IChannelCallBack *p) { _pchannel_callback = p; }
+
+int Channel::epollfd() { return _epollfd; }
 int Channel::sockfd() { return _sockfd; }
-void Channel::perror(std::string msg){
-    std::cout << msg << " " << strerror(errno) << " fd = " << _sockfd << std::endl;
-    exit(1);
-}
-void Channel::Update(){
+void Channel::set_revents(int revents) { _revents = revents; }
+
+void Channel::update(){
     struct epoll_event ev;
     ev.data.ptr = this;
-    ev.events = _event;
+    ev.events = _events;
     if(-1 == epoll_ctl(_epollfd, EPOLL_CTL_ADD, _sockfd, &ev))
-        perror("epoll_ctl");
+        ::perror("epoll_ctl", _sockfd);
 }
 
 void Channel::EnableReading(){
-    _event |= EPOLLIN;
-    Update();
+    _events |= EPOLLIN;
+    update();
 }
 
-void Channel::set_revents(int revents) { _Revents = revents; }
-void Channel::set_callback(ConcreteHandler *callback){ _callback = callback; }
-void Channel::HandleEvent(){ 
-    if(_Revents & EPOLLIN)
-        _callback->Method(_sockfd); 
+void Channel::HandleEvent(){
+    _pchannel_callback->Method(_sockfd);
 }

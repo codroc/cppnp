@@ -1,6 +1,14 @@
-# Version 0.02: 在 Version 0.01 的基础上用 C++ 改写
+# 
 
-引入 Channel 类将 socket 给封装起来，并将与 socket 相关的方法放入类中。
-现在要管理 Channel 的生命周期了，这次改写导致了内存泄漏，之后再解决。
+将原来 **Channel** 对 *Event* 的处理方法进行细分， **Acceptor** 用来专门接受新的连接；**Communicator** 用来在建立的连接上进行通信。
 
-下个 Version 的目标是将接受连接和读写解耦出来。
+
+思路是这样的：
+
+1. 构建一个 TcpServer 类，该类拥有 Start 方法，在 main 函数中只需要执行该方法就可以启动服务器。
+2. 每个 TcpServer 对象拥有一个 Acceptor(即对 listenfd 进行封装)，专门用来处理新的连接。
+3. 每当 epoll_wait 返回，就循环处理每个事件（新的连接或读写），通过 Channel 的 HandleEvent 接口来处理事件(实现多态)。
+
+整个代码的框架如下图所示：
+
+![]()

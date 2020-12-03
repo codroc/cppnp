@@ -1,26 +1,25 @@
-#ifndef CPPNP_TCPSERVER_H_
-#define CPPNP_TCPSERVER_H_
-#include <string>
+#ifndef CPPNP_TCP_SERVER_H_
+#define CPPNP_TCP_SERVER_H_ 
 
-#include "call_back.h"
-class TcpServer : public ConcreteHandler{
+#include "i_acceptor_callback.h"
+#include "acceptor.h"
+#include "communicator.h"
+#include "channel.h"
+#include <map>
+using namespace std;
+class TcpServer : public IAcceptorCallBack{
 public:
-    TcpServer(unsigned short port, int);
+    TcpServer(unsigned short);
     ~TcpServer();
 
-    virtual void Method(int);
-
-    void perror(std::string);
-    int CreateAndListen();
+    virtual int Connect();
     void Start();
-
 private:
     int _epollfd;
-    int _listenfd;
-    int _back_log;
-
     unsigned short _port;
+    Acceptor *_pAcceptor;
+    Communicator *_pComm;
+    map<int, Channel* > mp;
 };
 
-
-#endif // CPPNP_TCPSERVER_H_
+#endif  // CPPNP_TCP_SERVER_H_
