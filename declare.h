@@ -1,3 +1,6 @@
+#ifndef CPPNP_DECLARE_H_
+#define CPPNP_DECLARE_H_
+
 #include <stdlib.h>
 #include <string.h>
 #include <sys/socket.h>
@@ -14,4 +17,7 @@
 #define BACKLOG 5
 #define MAXEVENTS 200
 
+enum {EP_ADD = 0, EP_DEL, EP_MOD};
 void perror(std::string msg, int);
+
+#endif //CPPNP_DECLARE_H_

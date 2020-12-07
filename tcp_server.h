@@ -2,6 +2,7 @@
 #define CPPNP_TCP_SERVER_H_ 
 
 #include "i_acceptor_callback.h"
+#include "eventloop.h"
 #include "acceptor.h"
 #include "communicator.h"
 #include "channel.h"
@@ -9,16 +10,16 @@
 using namespace std;
 class TcpServer : public IAcceptorCallBack{
 public:
-    TcpServer(unsigned short);
+    TcpServer(unsigned short, Eventloop*);
     ~TcpServer();
 
     virtual int Connect();
     void Start();
 private:
-    int _epollfd;
+    Eventloop *_pEventloop;
     unsigned short _port;
-    Acceptor *_pAcceptor;
-    Communicator *_pComm;
+
+    Channel *_pListen;
     map<int, Channel* > mp;
 };
 

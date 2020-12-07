@@ -2,10 +2,8 @@
 
 #include "sys/epoll.h"
 
-#include "declare.h"
-
-Channel::Channel(int epollfd, int sockfd) :
-    _epollfd(epollfd),
+Channel::Channel(Eventloop *pEventloop, int sockfd) :
+    _pEventloop(pEventloop),
     _sockfd(sockfd),
     _events(0),
     _revents(0),
@@ -16,21 +14,18 @@ Channel::~Channel(){}
 
 void Channel::set_callback(IChannelCallBack *p) { _pchannel_callback = p; }
 
-int Channel::epollfd() { return _epollfd; }
+Eventloop* Channel::eventloop() { return _pEventloop; }
 int Channel::sockfd() { return _sockfd; }
 void Channel::set_revents(int revents) { _revents = revents; }
+int Channel::events() { return _events; }
 
-void Channel::update(){
-    struct epoll_event ev;
-    ev.data.ptr = this;
-    ev.events = _events;
-    if(-1 == epoll_ctl(_epollfd, EPOLL_CTL_ADD, _sockfd, &ev))
-        ::perror("epoll_ctl", _sockfd);
+void Channel::Update(int ep_op=EP_ADD){
+    _pEventloop->Update(this, ep_op);
 }
 
 void Channel::EnableReading(){
     _events |= EPOLLIN;
-    update();
+    Update(EP_ADD);
 }
 
 void Channel::HandleEvent(){

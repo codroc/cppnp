@@ -2,12 +2,12 @@
 #include "declare.h"
 
 
-Acceptor::Acceptor(int epollfd, unsigned short port = 10086){
-    _epollfd = epollfd;
+Acceptor::Acceptor(Eventloop *pEventloop, unsigned short port = 10086){
+    _pEventloop = pEventloop;
     _port = port;
     _listenfd = CreateAndListen();
     _pcallback = NULL;
-    _paccept_channel = new Channel(_epollfd, _listenfd);
+    _paccept_channel = new Channel(_pEventloop, _listenfd);
 }
 
 Acceptor::~Acceptor(){

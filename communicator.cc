@@ -2,8 +2,8 @@
 #include "declare.h"
 #include <map>
 using namespace std;
-Communicator::Communicator(int epollfd) :
-    _epollfd(epollfd), _pmp(NULL)
+Communicator::Communicator(Eventloop *pEventloop) :
+    _pEventloop(pEventloop), _pmp(NULL)
 {}
 
 Communicator::~Communicator(){}
@@ -22,9 +22,9 @@ void Communicator::Method(int fd){
 
     if((readnum = read(fd, buf, kMaxBufSize)) < 0){
         std::cout << "readnum < 0 error!\n";
-        epoll_ctl(_epollfd, EPOLL_CTL_DEL, fd, NULL);
         map<int,Channel*>::iterator it = (*_pmp).find(fd);
         if((*_pmp).end() != it){
+            _pEventloop->Update(it->second, EP_DEL);
             delete it->second;
             (*_pmp).erase(it);
         }
@@ -32,9 +32,9 @@ void Communicator::Method(int fd){
     }
     else if(readnum == 0){
         std::cout << "has read the end of the file!\n";
-        epoll_ctl(_epollfd, EPOLL_CTL_DEL, fd, NULL);
         map<int,Channel*>::iterator it = (*_pmp).find(fd);
         if((*_pmp).end() != it){
+            _pEventloop->Update(it->second, EP_DEL);
             delete it->second;
             (*_pmp).erase(it);
         }

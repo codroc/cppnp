@@ -4,17 +4,19 @@
 #include "i_channel_callback.h"
 #include "i_acceptor_callback.h"
 #include "channel.h"
+#include "eventloop.h"
 class Acceptor : public IChannelCallBack{
 public:
-    Acceptor(int, unsigned short);
+    Acceptor(Eventloop*, unsigned short);
     ~Acceptor();
 
     virtual void Method(int);
     void set_callback(IAcceptorCallBack *);
     int listenfd();
 private:
+    Eventloop *_pEventloop;
+
     int CreateAndListen();
-    int _epollfd;
     int _listenfd;
     int _port;
     IAcceptorCallBack *_pcallback;
