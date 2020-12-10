@@ -3,7 +3,7 @@
 
 class IAcceptorCallBack{
 public:
-    virtual int Connect(){}
+    virtual int NewConnection(){}
 };
 
 #endif // CPPNP_I_ACCEPTOR_CALLBACK_H_

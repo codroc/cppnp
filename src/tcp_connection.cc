@@ -1,18 +1,35 @@
 #include <map>
+#include <type_traits>
 
+#include "tcp_connection.h"
 #include "channel.h"
 #include "eventloop.h"
-#include "tcp_connection.h"
+#include "buffer.h"
 #include "declare.h"
 using namespace std;
-TcpConnection::TcpConnection(Eventloop *pEventloop) :
-    _pEventloop(pEventloop), _pmp(NULL)
-{}
+map<int, TcpConnection*>* TcpConnection::_pmp;
+TcpConnection::TcpConnection(Eventloop *pEventloop, int connfd) :
+    _pEventloop(pEventloop)
+{
+    _pChannel = new Channel(_pEventloop, connfd);
+    _pChannel->set_callback(this);
+    _pChannel->EnableReading();
 
-TcpConnection::~TcpConnection(){}
+//    if(_pmp->end() == _pmp->find(connfd)){
+//        _pmp->insert(pair<int, Channel* >(connfd, pChannel_tmp));
+//    }
+    _outputbuf = new Buffer;
+    _inputbuf = new Buffer;
+}
+
+TcpConnection::~TcpConnection(){
+    delete _pChannel;    
+    delete _outputbuf;
+    delete _inputbuf;
+}
 
 /* TcpConnection 处理读写业务 */
-void TcpConnection::Method(int fd){
+void TcpConnection::HandleReading(int fd){
     std::cout << "fd = " << fd << std::endl;
     if(fd < 0){
         std::cout << "fd < 0 error!\n";
@@ -25,33 +42,50 @@ void TcpConnection::Method(int fd){
 
     if((readnum = read(fd, buf, kMaxBufSize)) < 0){
         std::cout << "readnum < 0 error!\n";
-        map<int,Channel*>::iterator it = (*_pmp).find(fd);
-        if((*_pmp).end() != it){
-            _pEventloop->Update(it->second, EP_DEL);
-            delete it->second;
-            (*_pmp).erase(it);
-        }
+
+        map<int, TcpConnection*>::iterator it = _pmp->find(fd);
+        if(it != _pmp->end())
+            _pmp->erase(it);
+        delete it->second;
         close(fd);
     }
     else if(readnum == 0){
         std::cout << "has read the end of the file!\n";
-        map<int,Channel*>::iterator it = (*_pmp).find(fd);
-        if((*_pmp).end() != it){
-            _pEventloop->Update(it->second, EP_DEL);
-            delete it->second;
-            (*_pmp).erase(it);
-        }
+
+        map<int, TcpConnection*>::iterator it = _pmp->find(fd);
+        if(it != _pmp->end())
+            _pmp->erase(it);
+        delete it->second;
         close(fd);
     }
     else{
-        string data(buf, readnum);
-        _pcppnp_usr->OnMessage(this, fd, data);
+        _inputbuf->Append(buf, readnum);
+        _pcppnp_usr->OnMessage(this, _inputbuf);
+    }
+}
+
+void TcpConnection::HandleWriting(int fd){
+    int n = _outputbuf->Write(_pChannel->sockfd());
+    if(n < 0)
+        cout << "write error!\n";
+    else if(_outputbuf->len() > 0){
+        cout << "write not finished! " << _outputbuf->len() << " bytes left!\n";
+        // 注册该 Channel 的 EPOLLOUT 事件
+        EnableWriting();
+    }
+    else{
+        DisableWriting();
     }
 }
 
 void TcpConnection::set_usr(ICppnpUsr *usr) { _pcppnp_usr = usr; }
-void TcpConnection::Send(int fd, const string &data){
-    int n = ::write(fd, data.c_str(), data.size());
-    if(n != static_cast<int>(data.size()))
-        cout << "write error! " << data.size() - n << " bytes left!\n";
+void TcpConnection::Send(const string &data){
+    const char *tmp = data.c_str();
+    int data_len = static_cast<int>(data.size());
+
+    _outputbuf->Append(tmp, data_len);
+    HandleWriting(_pChannel->sockfd());
 }
+void TcpConnection::EnableReading(){ _pChannel->EnableReading(); }
+void TcpConnection::EnableWriting(){ _pChannel->EnableWriting(); }
+void TcpConnection::DisableWriting() { _pChannel->DisableWriting(); }

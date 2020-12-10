@@ -24,11 +24,21 @@ void Channel::Update(int ep_op=EP_ADD){
     _pEventloop->Update(this, ep_op);
 }
 
+void Channel::EnableWriting(){
+    _events = EPOLLOUT;
+    Update(EP_MOD);
+}
 void Channel::EnableReading(){
     _events |= EPOLLIN;
     Update(EP_ADD);
 }
-
+void Channel::DisableWriting(){
+    _events &= ~EPOLLOUT;
+    Update(EP_MOD);
+}
 void Channel::HandleEvent(){
-    _pchannel_callback->Method(_sockfd);
+    if(_events & EPOLLIN)
+        _pchannel_callback->HandleReading(_sockfd);
+    else if(_events & EPOLLOUT)
+        _pchannel_callback->HandleWriting(_sockfd);
 }

@@ -10,12 +10,14 @@ Epoll::~Epoll(){}
 
 void Epoll::Update(Channel *pChannel, int ep_op){
     struct epoll_event ev;
-    if(ep_op == EP_ADD || ep_op == EP_MOD){
-        ev.data.ptr = pChannel;
-        ev.events = pChannel->events();
+    ev.data.ptr = pChannel;
+    ev.events = pChannel->events();
+    if(ep_op == EP_ADD){
         if(-1 == epoll_ctl(_epollfd, EPOLL_CTL_ADD, pChannel->sockfd(), &ev))
             printf("epoll_ctl return -1!\n");
     }
+    else if(ep_op == EP_MOD)
+        epoll_ctl(_epollfd, EPOLL_CTL_MOD, pChannel->sockfd(), &ev);
     else if(ep_op == EP_DEL)
         epoll_ctl(_epollfd, EPOLL_CTL_DEL, pChannel->sockfd(), &ev);
 }

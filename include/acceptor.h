@@ -10,9 +10,11 @@ public:
     Acceptor(Eventloop*, unsigned short);
     ~Acceptor();
 
-    virtual void Method(int);
+    virtual void HandleReading(int);
+    virtual void HandleWriting(int);
     void set_callback(IAcceptorCallBack *);
     int listenfd();
+    void EnableReading();
 private:
     Eventloop *_pEventloop;
 

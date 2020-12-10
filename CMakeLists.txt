@@ -6,6 +6,7 @@ set(SOURCES
     src/perror.cc 
     src/epoll.cc 
     src/channel.cc 
+    src/buffer.cc
     src/tcp_connection.cc 
     src/eventloop.cc 
     src/acceptor.cc 

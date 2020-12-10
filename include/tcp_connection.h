@@ -10,18 +10,31 @@
 using namespace std;
 class Eventloop;
 class Channel;
+class Buffer;
 class TcpConnection : public IChannelCallBack{
 public:
-    TcpConnection(Eventloop *);
+    TcpConnection(Eventloop *, int);
     ~TcpConnection();
 
-    virtual void Method(int);
-    void Send(int fd, const string&);
+    virtual void HandleReading(int);
+    virtual void HandleWriting(int);
+    void Send(const string&);
     void set_usr(ICppnpUsr *);
-    map<int, Channel* > *_pmp;
+    void EnableReading();
+    void EnableWriting();
+    void DisableWriting();
 private:
     Eventloop *_pEventloop;
+    Channel *_pChannel;
+    // 用于跟用户沟通
     ICppnpUsr *_pcppnp_usr;
+
+    Buffer *_outputbuf;
+    Buffer *_inputbuf;
+
+public:
+    static map<int, TcpConnection*>* _pmp;
 };
+
 
 #endif // CPPNP_TCPCONNECTION_H_

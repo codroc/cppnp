@@ -3,6 +3,7 @@
 #include "i_cppnp_usr.h"
 #include "declare.h"
 class Eventloop;
+class Buffer;
 class TcpConnection;
 class TcpServer;
 class EchoServer : public ICppnpUsr{
@@ -11,9 +12,9 @@ public:
     ~EchoServer();
 
     void Start();
-    const string Core(const string&);
+    const string Core(Buffer*);
     virtual void OnConnection(TcpConnection *);
-    virtual void OnMessage(TcpConnection *, int, const string&);
+    virtual void OnMessage(TcpConnection *, Buffer *); 
 private:
     TcpServer *_ptcp_sv;
     Eventloop *_pEventloop;

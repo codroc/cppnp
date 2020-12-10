@@ -15,6 +15,8 @@ public:
     void set_revents(int);
     int events();
     void EnableReading();
+    void EnableWriting();
+    void DisableWriting();
     void HandleEvent();
     void Update(int);
 private:
