@@ -1,6 +1,7 @@
 #ifndef CPPNP_DECLARE_H_
 #define CPPNP_DECLARE_H_
 
+#include <inttypes.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/socket.h>
@@ -13,6 +14,7 @@
 #include <iostream>
 #include <string>
 #include <vector>
+#include <set>
 
 #define BACKLOG 5
 #define MAXEVENTS 200

@@ -3,6 +3,7 @@
 
 #include "declare.h"
 #include "i_channel_callback.h"
+#include "i_run.h"
 #include "i_cppnp_usr.h"
 
 #include <string>
@@ -11,18 +12,25 @@ using namespace std;
 class Eventloop;
 class Channel;
 class Buffer;
-class TcpConnection : public IChannelCallBack{
+class TcpConnection : public IChannelCallBack
+            , public IRun
+{
 public:
     TcpConnection(Eventloop *, int);
     ~TcpConnection();
 
     virtual void HandleReading(int);
     virtual void HandleWriting(int);
+
+    virtual void run(void*);
+
     void Send(const string&);
     void set_usr(ICppnpUsr *);
     void EnableReading();
     void EnableWriting();
     void DisableWriting();
+
+    void ConnectionEstablished();
 private:
     Eventloop *_pEventloop;
     Channel *_pChannel;

@@ -75,8 +75,11 @@ void TcpConnection::HandleWriting(int fd){
     }
     else{
         DisableWriting();
+        _pEventloop->QueueLoop(this, NULL);
     }
 }
+
+void TcpConnection::run(void *param){ _pcppnp_usr->OnWriteComplete(this); }
 
 void TcpConnection::set_usr(ICppnpUsr *usr) { _pcppnp_usr = usr; }
 void TcpConnection::Send(const string &data){
@@ -89,3 +92,4 @@ void TcpConnection::Send(const string &data){
 void TcpConnection::EnableReading(){ _pChannel->EnableReading(); }
 void TcpConnection::EnableWriting(){ _pChannel->EnableWriting(); }
 void TcpConnection::DisableWriting() { _pChannel->DisableWriting(); }
+void TcpConnection::ConnectionEstablished() { _pcppnp_usr->OnConnection(this); }

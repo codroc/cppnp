@@ -6,8 +6,10 @@ class TcpConnection;
 class Buffer;
 class ICppnpUsr{
 public:
-    virtual void OnConnection(TcpConnection*){}
-    virtual void OnMessage(TcpConnection*, Buffer *){}
+    virtual void OnConnection(TcpConnection*)=0;
+    virtual void OnMessage(TcpConnection*, Buffer *)=0;
+
+    virtual void OnWriteComplete(TcpConnection*)=0;
 };
 
 #endif // CPPNP_I_CPPNP_USR_H_

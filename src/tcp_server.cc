@@ -8,13 +8,10 @@
 #include "acceptor.h"
 #include "tcp_connection.h"
 TcpServer::TcpServer(unsigned short port, Eventloop *pEventloop) {
-    _port = port;
     _pEventloop = pEventloop;
-
-    _pAcceptor = new Acceptor(_pEventloop, _port);
-    _pAcceptor->set_callback(this);
-
-    std::cout << "Listen fd = " << _pAcceptor->listenfd() << std::endl;
+    _pusr = NULL;
+    _port = port;
+    _pAcceptor = NULL;
     TcpConnection::_pmp = &mp;
 }
 
@@ -27,6 +24,10 @@ TcpServer::~TcpServer(){
 void TcpServer::set_usr(ICppnpUsr *pusr) { _pusr = pusr; }
 
 void TcpServer::Start(){
+    _pAcceptor = new Acceptor(_pEventloop, _port);
+    _pAcceptor->set_callback(this);
+
+    std::cout << "Listen fd = " << _pAcceptor->listenfd() << std::endl;
     _pAcceptor->EnableReading();
 }
 
@@ -48,6 +49,7 @@ int TcpServer::NewConnection(){
     }
     TcpConnection *ptcp_connection_tmp = new TcpConnection(_pEventloop, connfd);
     ptcp_connection_tmp->set_usr(_pusr);
+    ptcp_connection_tmp->ConnectionEstablished();
     if(mp.end() == mp.find(connfd))
         mp.insert(pair<int, TcpConnection*>(connfd, ptcp_connection_tmp));
     else cout << "fd: " << connfd << "has exist!\n";
