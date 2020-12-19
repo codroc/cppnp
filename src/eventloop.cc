@@ -17,9 +17,9 @@ Eventloop::Eventloop(){
     _pTimerQueue = new TimerQueue(this);
 
     _eventfd = CreateEventfd();
-    _pWakeupChannel = new Channel(this, _eventfd);// memory leak!
-    _pWakeupChannel->set_callback(this);
-    _pWakeupChannel->EnableReading();
+    _pEventfdChannel = new Channel(this, _eventfd);// memory leak!
+    _pEventfdChannel->set_callback(this);
+    _pEventfdChannel->EnableReading();
 
 }
 Eventloop::~Eventloop(){

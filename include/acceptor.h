@@ -22,7 +22,7 @@ private:
     int _listenfd;
     int _port;
     IAcceptorCallBack *_pcallback;
-    Channel *_paccept_channel;
+    Channel *_pSockAChannel;
 };
 
 #endif // CPPNP_ACCEPTOR_H_

@@ -11,9 +11,9 @@ map<int, TcpConnection*>* TcpConnection::_pmp;
 TcpConnection::TcpConnection(Eventloop *pEventloop, int connfd) :
     _pEventloop(pEventloop)
 {
-    _pChannel = new Channel(_pEventloop, connfd);
-    _pChannel->set_callback(this);
-    _pChannel->EnableReading();
+    _pSockChannel = new Channel(_pEventloop, connfd);
+    _pSockChannel->set_callback(this);
+    _pSockChannel->EnableReading();
 
 //    if(_pmp->end() == _pmp->find(connfd)){
 //        _pmp->insert(pair<int, Channel* >(connfd, pChannel_tmp));
@@ -23,7 +23,7 @@ TcpConnection::TcpConnection(Eventloop *pEventloop, int connfd) :
 }
 
 TcpConnection::~TcpConnection(){
-    delete _pChannel;    
+    delete _pSockChannel;    
     delete _outputbuf;
     delete _inputbuf;
 }
@@ -65,7 +65,7 @@ void TcpConnection::HandleReading(int fd){
 }
 
 void TcpConnection::HandleWriting(int fd){
-    int n = _outputbuf->Write(_pChannel->sockfd());
+    int n = _outputbuf->Write(_pSockChannel->fd());
     if(n < 0)
         cout << "write error!\n";
     else if(_outputbuf->len() > 0){
@@ -87,9 +87,9 @@ void TcpConnection::Send(const string &data){
     int data_len = static_cast<int>(data.size());
 
     _outputbuf->Append(tmp, data_len);
-    HandleWriting(_pChannel->sockfd());
+    HandleWriting(_pSockChannel->fd());
 }
-void TcpConnection::EnableReading(){ _pChannel->EnableReading(); }
-void TcpConnection::EnableWriting(){ _pChannel->EnableWriting(); }
-void TcpConnection::DisableWriting() { _pChannel->DisableWriting(); }
+void TcpConnection::EnableReading(){ _pSockChannel->EnableReading(); }
+void TcpConnection::EnableWriting(){ _pSockChannel->EnableWriting(); }
+void TcpConnection::DisableWriting() { _pSockChannel->DisableWriting(); }
 void TcpConnection::ConnectionEstablished() { _pcppnp_usr->OnConnection(this); }

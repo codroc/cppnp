@@ -11,7 +11,7 @@ public:
 
     void set_callback(IChannelCallBack *);
     Eventloop* eventloop();
-    int sockfd();
+    int fd();
     void set_revents(int);
     int events();
     void EnableReading();
@@ -21,7 +21,7 @@ public:
     void Update(int);
 private:
     Eventloop *_pEventloop;
-    int _sockfd;
+    int _fd;
     int _events;
     int _revents;
     IChannelCallBack *_pchannel_callback;

@@ -13,13 +13,13 @@ void Epoll::Update(Channel *pChannel, int ep_op){
     ev.data.ptr = pChannel;
     ev.events = pChannel->events();
     if(ep_op == EP_ADD){
-        if(-1 == epoll_ctl(_epollfd, EPOLL_CTL_ADD, pChannel->sockfd(), &ev))
+        if(-1 == epoll_ctl(_epollfd, EPOLL_CTL_ADD, pChannel->fd(), &ev))
             printf("epoll_ctl return -1!\n");
     }
     else if(ep_op == EP_MOD)
-        epoll_ctl(_epollfd, EPOLL_CTL_MOD, pChannel->sockfd(), &ev);
+        epoll_ctl(_epollfd, EPOLL_CTL_MOD, pChannel->fd(), &ev);
     else if(ep_op == EP_DEL)
-        epoll_ctl(_epollfd, EPOLL_CTL_DEL, pChannel->sockfd(), &ev);
+        epoll_ctl(_epollfd, EPOLL_CTL_DEL, pChannel->fd(), &ev);
 }
 void Epoll::Poll(vector<Channel*> &channels){
     int num = epoll_wait(_epollfd, _events, MAXEVENTS, -1);

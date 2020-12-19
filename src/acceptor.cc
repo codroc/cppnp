@@ -9,12 +9,12 @@ Acceptor::Acceptor(Eventloop *pEventloop, unsigned short port = 10086){
     _port = port;
     _listenfd = CreateAndListen();
     _pcallback = NULL;
-    _paccept_channel = new Channel(_pEventloop, _listenfd);
-    _paccept_channel->set_callback(this);
+    _pSockAChannel = new Channel(_pEventloop, _listenfd);
+    _pSockAChannel->set_callback(this);
 }
 
 Acceptor::~Acceptor(){
-    delete _paccept_channel;
+    delete _pSockAChannel;
 }
 
 int Acceptor::CreateAndListen(){
@@ -47,4 +47,4 @@ void Acceptor::HandleReading(int fd){
     _pcallback->NewConnection();
 }
 void Acceptor::HandleWriting(int fd){}
-void Acceptor::EnableReading(){ _paccept_channel->EnableReading(); }
+void Acceptor::EnableReading(){ _pSockAChannel->EnableReading(); }

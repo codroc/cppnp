@@ -33,7 +33,7 @@ public:
     void ConnectionEstablished();
 private:
     Eventloop *_pEventloop;
-    Channel *_pChannel;
+    Channel *_pSockChannel;
     // 用于跟用户沟通
     ICppnpUsr *_pcppnp_usr;
 

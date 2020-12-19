@@ -49,7 +49,7 @@ private:
     int CreateEventfd();
     void DoPendingFunctors();
     int _eventfd;
-    Channel *_pWakeupChannel;
+    Channel *_pEventfdChannel;
     vector<Runner> _pendingFunctors;
 
     TimerQueue *_pTimerQueue;

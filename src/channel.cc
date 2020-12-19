@@ -3,9 +3,9 @@
 #include "sys/epoll.h"
 
 #include "eventloop.h"
-Channel::Channel(Eventloop *pEventloop, int sockfd) :
+Channel::Channel(Eventloop *pEventloop, int fd) :
     _pEventloop(pEventloop),
-    _sockfd(sockfd),
+    _fd(fd),
     _events(0),
     _revents(0),
     _pchannel_callback(NULL)
@@ -16,7 +16,7 @@ Channel::~Channel(){}
 void Channel::set_callback(IChannelCallBack *p) { _pchannel_callback = p; }
 
 Eventloop* Channel::eventloop() { return _pEventloop; }
-int Channel::sockfd() { return _sockfd; }
+int Channel::fd() { return _fd; }
 void Channel::set_revents(int revents) { _revents = revents; }
 int Channel::events() { return _events; }
 
@@ -38,7 +38,7 @@ void Channel::DisableWriting(){
 }
 void Channel::HandleEvent(){
     if(_events & EPOLLIN)
-        _pchannel_callback->HandleReading(_sockfd);
+        _pchannel_callback->HandleReading(_fd);
     else if(_events & EPOLLOUT)
-        _pchannel_callback->HandleWriting(_sockfd);
+        _pchannel_callback->HandleWriting(_fd);
 }
