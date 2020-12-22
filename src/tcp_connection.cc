@@ -15,17 +15,14 @@ TcpConnection::TcpConnection(Eventloop *pEventloop, int connfd) :
     _pSockChannel->set_callback(this);
     _pSockChannel->EnableReading();
 
-//    if(_pmp->end() == _pmp->find(connfd)){
-//        _pmp->insert(pair<int, Channel* >(connfd, pChannel_tmp));
-//    }
     _outputbuf = new Buffer;
     _inputbuf = new Buffer;
 }
 
 TcpConnection::~TcpConnection(){
-    delete _pSockChannel;    
-    delete _outputbuf;
-    delete _inputbuf;
+    delete _inputbuf;// new Buffer
+    delete _outputbuf;// new Buffer
+    delete _pSockChannel;// new Channel
 }
 
 /* TcpConnection 处理读写业务 */
@@ -47,7 +44,6 @@ void TcpConnection::HandleReading(int fd){
         if(it != _pmp->end())
             _pmp->erase(it);
         delete it->second;
-        close(fd);
     }
     else if(readnum == 0){
         std::cout << "has read the end of the file!\n";
@@ -56,7 +52,6 @@ void TcpConnection::HandleReading(int fd){
         if(it != _pmp->end())
             _pmp->erase(it);
         delete it->second;
-        close(fd);
     }
     else{
         _inputbuf->Append(buf, readnum);

@@ -18,7 +18,8 @@ TcpServer::TcpServer(unsigned short port, Eventloop *pEventloop) {
 TcpServer::~TcpServer(){
     map<int, TcpConnection* >::iterator it;
     for(it = mp.begin();it != mp.end();++it)
-        delete it->second;
+        delete it->second;// new TcpConnection
+    delete _pAcceptor;// new Acceptor
 }
 
 void TcpServer::set_usr(ICppnpUsr *pusr) { _pusr = pusr; }

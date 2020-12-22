@@ -17,14 +17,15 @@ Eventloop::Eventloop(){
     _pTimerQueue = new TimerQueue(this);
 
     _eventfd = CreateEventfd();
-    _pEventfdChannel = new Channel(this, _eventfd);// memory leak!
+    _pEventfdChannel = new Channel(this, _eventfd);
     _pEventfdChannel->set_callback(this);
     _pEventfdChannel->EnableReading();
 
 }
 Eventloop::~Eventloop(){
-    delete _pEpoll;
-    delete _pTimerQueue;
+    delete _pEventfdChannel;// new Channel
+    delete _pTimerQueue;// new TimerQueue
+    delete _pEpoll;// new Epoll
 }
 
 void Eventloop::Loop(){
@@ -40,6 +41,7 @@ void Eventloop::Loop(){
         // 处理异步事件，现在有 OnWriteComplete 和 Timer 事件 
         DoPendingFunctors();
     }
+    cout << "Server Quit!\n";
 }
 
 void Eventloop::Update(Channel *pChannel, int ep_op=EP_ADD) { _pEpoll->Update(pChannel, ep_op); }

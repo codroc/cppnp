@@ -11,7 +11,7 @@ Channel::Channel(Eventloop *pEventloop, int fd) :
     _pchannel_callback(NULL)
 {}
 
-Channel::~Channel(){}
+Channel::~Channel(){ ::close(_fd); }
 
 void Channel::set_callback(IChannelCallBack *p) { _pchannel_callback = p; }
 

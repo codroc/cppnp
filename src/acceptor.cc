@@ -14,7 +14,7 @@ Acceptor::Acceptor(Eventloop *pEventloop, unsigned short port = 10086){
 }
 
 Acceptor::~Acceptor(){
-    delete _pSockAChannel;
+    delete _pSockAChannel;// new Channel
 }
 
 int Acceptor::CreateAndListen(){

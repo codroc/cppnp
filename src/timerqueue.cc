@@ -18,18 +18,17 @@
 TimerQueue::TimerQueue(Eventloop *pEventloop) :
     _timerfd(CreateTimerfd()),
     _pEventloop(pEventloop),
-    _pTimerfdChannel(new Channel(_pEventloop, _timerfd)),   // memory leak!
-    _pAddTimerWrapper(new AddTimerWrapper(this)),           // memory leak!
-    _pCancelTimerWrapper(new CancelTimerWrapper(this))      // memory leak!
+    _pTimerfdChannel(new Channel(_pEventloop, _timerfd)),   
+    _pAddTimerWrapper(new AddTimerWrapper(this)),           
+    _pCancelTimerWrapper(new CancelTimerWrapper(this))      
 {
     _pTimerfdChannel->set_callback(this);
     _pTimerfdChannel->EnableReading();
 }
 TimerQueue::~TimerQueue(){
-    ::close(_timerfd);
-//    delete _pTimerfdChannel;
-//    delete _pAddTimerWrapper;
-//    delete _pCancelTimerWrapper;
+    delete _pCancelTimerWrapper;// new CancelTimerWrapper
+    delete _pAddTimerWrapper;// new AddTimerWrapper
+    delete _pTimerfdChannel;// new Channel
 }    
 
 int TimerQueue::CreateTimerfd(){
@@ -42,7 +41,7 @@ int TimerQueue::CreateTimerfd(){
 
 int64_t TimerQueue::AddTimer(IRun *pRun, Timestamp stamp, double interval)
 {
-    Timer* pTimer = new Timer(stamp, pRun, interval);// memory leak
+    Timer* pTimer = new Timer(stamp, pRun, interval);
     _pEventloop->QueueLoop(_pAddTimerWrapper, pTimer);
     return (int64_t)pTimer;
 }
@@ -54,11 +53,11 @@ void TimerQueue::DoCancelTimer(void *param){
     TimerList::iterator it;
     for(it = _timers.begin(); it != _timers.end();++it){
         if(it->second == pTimer){
+            delete it->second;//new pTimer;
             _timers.erase(it);
             break;
         }
     }
-    //delete pTimer;
 }
 void TimerQueue::DoAddTimer(void *param){
     Timer *pTimer = static_cast<Timer*>(param);

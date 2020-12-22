@@ -6,7 +6,7 @@ Epoll::Epoll(){
     _epollfd = epoll_create(1);
 }
 
-Epoll::~Epoll(){}
+Epoll::~Epoll(){ ::close(_epollfd); }
 
 void Epoll::Update(Channel *pChannel, int ep_op){
     struct epoll_event ev;

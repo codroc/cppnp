@@ -7,7 +7,7 @@ Buffer::Buffer(){
     memset(_pBuf, 0, kMaxAppBufSize);
 }
 Buffer::~Buffer(){
-    delete _pBuf;
+    delete _pBuf;// new char[]
 }
 
 const char* Buffer::str(){ return _pBuf; }

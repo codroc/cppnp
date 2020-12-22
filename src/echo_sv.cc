@@ -13,7 +13,7 @@ EchoServer::EchoServer(Eventloop *pEventloop, unsigned short port=80){
 }
 
 EchoServer::~EchoServer(){
-    delete _ptcp_sv;
+    delete _ptcp_sv;// new TcpServer
 }
 
 void EchoServer::Start(){ 
@@ -41,8 +41,9 @@ void EchoServer::OnWriteComplete(TcpConnection *pConn){
 void EchoServer::run(void *param){
     cout << "_index = " << _index << endl;
     _index++;
-    if(_index >= 1000){
+    if(_index >= 100){
         _pEventloop->cancelTimer(_timer);
         _index = 0;
+//        _pEventloop->Quit();
     }
 }
