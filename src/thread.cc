@@ -1,12 +1,16 @@
 #include "thread.h" 
+#include <unistd.h>
+#include <sys/syscall.h>
 #include <pthread.h>
 #include <assert.h>
 
+namespace CurrentThread{
+    __thread pid_t t_cacheTid = 0;// thread local storage 线程私有数据ID，避免系统调用获取ID
+}
 
-__thread pid_t t_cacheTid = 0;// 线程私有数据ID，避免系统调用获取ID
 void* func(void* arg){ ((Thread*)arg)->Run(); return NULL; }
 
-Thread::Tread(IRun *pIRun, const string &name) :
+Thread::Thread(IRun0 *pIRun, const string &name) :
     _pIRun(pIRun),
     _started(false),
     _joined(false),
@@ -29,10 +33,10 @@ void Thread::Join(){
     _joined = true;
     ::pthread_join(_t, NULL);
 }
-void Thread::Run(){ _pIRun->run(NULL); }
+void Thread::Run(){ _pIRun->run0(); }
 
 pid_t Thread::gettid() const { 
-    if(t_cacheTid == 0)
-        t_cacheTid = static_cast<pid_t>::syscall(SYS_gettid); 
-    return t_cacheTid;
+    if(CurrentThread::t_cacheTid == 0)
+        CurrentThread::t_cacheTid = static_cast<pid_t>(::syscall(SYS_gettid)); 
+    return CurrentThread::t_cacheTid;
 }

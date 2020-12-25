@@ -36,6 +36,10 @@ void Channel::DisableWriting(){
     _events &= ~EPOLLOUT;
     Update(EP_MOD);
 }
+void Channel::DisableReading(){
+    _events = 0;
+    Update(EP_MOD);
+}
 void Channel::HandleEvent(){
     if(_events & EPOLLIN)
         _pchannel_callback->HandleReading(_fd);

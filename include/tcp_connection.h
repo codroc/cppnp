@@ -13,7 +13,8 @@ class Eventloop;
 class Channel;
 class Buffer;
 class TcpConnection : public IChannelCallBack
-            , public IRun
+            , public IRun0
+            , public IRun2
 {
 public:
     TcpConnection(Eventloop *, int);
@@ -22,7 +23,8 @@ public:
     virtual void HandleReading(int);
     virtual void HandleWriting(int);
 
-    virtual void run(void*);
+    virtual void run0();
+    virtual void run2(const string&, void*);
 
     void Send(const string&);
     void set_usr(ICppnpUsr *);
@@ -31,7 +33,9 @@ public:
     void DisableWriting();
 
     void ConnectionEstablished();
+    void rund();// 删除 TcpConnection
 private:
+    void SendInMainThread();
     Eventloop *_pEventloop;
     Channel *_pSockChannel;
     // 用于跟用户沟通
@@ -40,7 +44,11 @@ private:
     Buffer *_outputbuf;
     Buffer *_inputbuf;
 
+    // 用于多线程处理链接断开时 TcpConnection 对象销毁所用
+    bool _theothersideisclosed;
+    int _pacCount;
 public:
+    // 用于记录已建立链接的 TcpConnection
     static map<int, TcpConnection*>* _pmp;
 };
 

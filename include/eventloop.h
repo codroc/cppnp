@@ -4,43 +4,37 @@
 
 #include <vector>
 using namespace std;
+#include <pthread.h>
 #include "i_channel_callback.h"
 #include "declare.h"
 #include "i_run.h"
+#include "mutex.h"
+#include "blocking_queue.h"
+#include "thread_pool.h"
+class Task;
 class Epoll;
 class Channel;
 class TimerQueue;
 class Timestamp;
 class Eventloop : public IChannelCallBack{
 public:
-    class Runner{
-    public:
-        Runner(IRun* pIRun, void *p) :
-            _pIRun(pIRun),
-            _param(p)
-        {}
-        ~Runner(){}
-        void run(){ _pIRun->run(_param); }
-    private:
-        IRun *_pIRun;
-        void *_param;
-    };
     Eventloop();
     ~Eventloop();
 
     void Loop();
     void Update(Channel*, int);
     void Quit();
+    bool isInMainThread();
 
     // 处理 OnWriteComplete 时间和 增删 Timer 时间
     void Wakeup();
     virtual void HandleReading(int);
     virtual void HandleWriting(int);
-    void QueueLoop(IRun*, void*);
+    void QueueLoop(Task&);
 
-    int64_t runAt(Timestamp, IRun*);
-    int64_t runAfter(double, IRun*);
-    int64_t runEvery(double, IRun*);
+    int64_t runAt(Timestamp, IRun0*);
+    int64_t runAfter(double, IRun0*);
+    int64_t runEvery(double, IRun0*);
     void cancelTimer(int64_t);
 private:
     Epoll *_pEpoll;
@@ -50,9 +44,13 @@ private:
     void DoPendingFunctors();
     int _eventfd;
     Channel *_pEventfdChannel;
-    vector<Runner> _pendingFunctors;
 
     TimerQueue *_pTimerQueue;
+    vector<Task> _pendingFunctors;
+
+    Mutex _mutex;
+    pid_t _tid;
+    ThreadPool _threadpool;
 };
 
 #endif // CPPNP_EVENTLOOP_H_

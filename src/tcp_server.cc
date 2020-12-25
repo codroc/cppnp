@@ -28,7 +28,7 @@ void TcpServer::Start(){
     _pAcceptor = new Acceptor(_pEventloop, _port);
     _pAcceptor->set_callback(this);
 
-    std::cout << "Listen fd = " << _pAcceptor->listenfd() << std::endl;
+    printf("Listen fd = %d\n", _pAcceptor->listenfd());
     _pAcceptor->EnableReading();
 }
 
@@ -39,20 +39,20 @@ int TcpServer::NewConnection(){
     int connfd = accept(listenfd, (struct sockaddr*) &caddr, &len);
     fcntl(connfd, F_SETFL, O_NONBLOCK);
     if(-1 == connfd){
-        std::cout << "accept failed!\n";
+        printf("accept failed!\n");
         return -1;
     }
     else{
-        cout << "new connection from host:"
-            << "[" << inet_ntoa(caddr.sin_addr)
-            << ":" << ntohs(caddr.sin_port) << "]"
-            << " accepted fd = " << connfd << std::endl;
+        printf("new connection from host:[%s:%d] accepted fd = %d\n",
+                inet_ntoa(caddr.sin_addr),
+                ntohs(caddr.sin_port),
+                connfd);
     }
     TcpConnection *ptcp_connection_tmp = new TcpConnection(_pEventloop, connfd);
     ptcp_connection_tmp->set_usr(_pusr);
     ptcp_connection_tmp->ConnectionEstablished();
     if(mp.end() == mp.find(connfd))
         mp.insert(pair<int, TcpConnection*>(connfd, ptcp_connection_tmp));
-    else cout << "fd: " << connfd << "has exist!\n";
+    else printf("fd: %d has exist!\n", connfd);
     return connfd;
 }

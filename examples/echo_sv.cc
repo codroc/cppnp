@@ -1,9 +1,10 @@
 #include "echo_sv.h"
+#include "current_thread.h"
 #include "eventloop.h"
 #include "tcp_connection.h"
 #include "tcp_server.h"
 #include "buffer.h"
-
+#include "task.h"
 EchoServer::EchoServer(Eventloop *pEventloop, unsigned short port=80){
     _ptcp_sv = new TcpServer(port, pEventloop);
     _ptcp_sv->set_usr(this);
@@ -19,31 +20,45 @@ EchoServer::~EchoServer(){
 void EchoServer::Start(){ 
     _ptcp_sv->Start(); 
     _timer = _pEventloop->runEvery(1, this);
+#ifdef MUTITHREAD
+    _threadpool.Start(5);
+#endif
 }
 
 void EchoServer::OnConnection(TcpConnection*){
-    cout << "OnConnection!\n";
+    printf("OnConnection!\n");
 }
 const string EchoServer::Core(Buffer *buf){  
-    string response;
-    response = string (buf->str());
+    string response = buf->ReadAsString();
     return response;
 }
 void EchoServer::OnMessage(TcpConnection *pConn, Buffer *buf){
-    cout << "OnMessage\n";
+    printf("OnMessage\n");
     const string response = Core(buf);
+#ifdef MUTITHREAD
+    Task task(this, response, pConn);
+    _threadpool.AddTask(task);
+#else
+    printf("#######################fib = %ld tid = %d\n",EchoServer::Fib(30), CurrentThread::tid());
     pConn->Send(response);
+#endif
 }
 void EchoServer::OnWriteComplete(TcpConnection *pConn){
-    cout << "WriteCompleted!" << endl;
+    printf("WriteCompleted!\n");
 }
-// param: 指向 Timer 的指针
-void EchoServer::run(void *param){
-    cout << "_index = " << _index << endl;
+void EchoServer::run0(){
+    printf("_index = %d\n", _index);
     _index++;
-    if(_index >= 100){
+    if(_index >= 60){
         _pEventloop->cancelTimer(_timer);
         _index = 0;
-//        _pEventloop->Quit();
+        _pEventloop->Quit();
     }
+}
+long EchoServer::Fib(int n){
+    return (n == 1 || n == 2) ? 1 : (EchoServer::Fib(n - 1) + EchoServer::Fib(n - 2));
+}
+void EchoServer::run2(const string &msg, void *pCon){
+    printf("#######################fib = %ld tid = %d\n",EchoServer::Fib(30), CurrentThread::tid());
+    static_cast<TcpConnection*>(pCon)->Send(msg);
 }

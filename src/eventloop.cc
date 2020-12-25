@@ -4,10 +4,12 @@
 
 #include <vector>
 
+#include "current_thread.h"
 #include "epoll.h"
 #include "channel.h"
 #include "acceptor.h"
 #include "tcp_connection.h"
+#include "task.h"
 #include "timestamp.h"
 #include "timerqueue.h"
 using namespace std;
@@ -20,7 +22,7 @@ Eventloop::Eventloop(){
     _pEventfdChannel = new Channel(this, _eventfd);
     _pEventfdChannel->set_callback(this);
     _pEventfdChannel->EnableReading();
-
+    _tid = CurrentThread::tid();
 }
 Eventloop::~Eventloop(){
     delete _pEventfdChannel;// new Channel
@@ -29,7 +31,6 @@ Eventloop::~Eventloop(){
 }
 
 void Eventloop::Loop(){
-//    cout << "quit= " << _quit << endl;
     while(!_quit){
         vector<Channel* > channels;
         _pEpoll->Poll(channels);
@@ -38,30 +39,35 @@ void Eventloop::Loop(){
         for(;it != channels.end();it++){
             (*it)->HandleEvent();
         }
-        // 处理异步事件，现在有 OnWriteComplete 和 Timer 事件 
         DoPendingFunctors();
     }
-    cout << "Server Quit!\n";
+    printf("Server Quit\n");
 }
 
 void Eventloop::Update(Channel *pChannel, int ep_op=EP_ADD) { _pEpoll->Update(pChannel, ep_op); }
-
-void Eventloop::QueueLoop(IRun *pIRun, void *param){
-    Runner r(pIRun, param);
-    _pendingFunctors.push_back(r);
-    Wakeup();
+bool Eventloop::isInMainThread() { return _tid == CurrentThread::tid(); }
+void Eventloop::QueueLoop(Task &task){
+    if(isInMainThread())
+        task.DoTask();
+    else{
+        {
+            MutexGuard lock(_mutex);
+            _pendingFunctors.push_back(task);
+        }
+        Wakeup();// 子线程来唤醒父线程去处理异步事件
+    }
 }
 void Eventloop::Wakeup(){
     uint64_t one = 1;
     int n = ::write(_eventfd, &one, sizeof(one));
     if(n != sizeof(one))
-        cout << "write just writes " << n << "bytes!\n";
+        printf("just writes %d bytes!\n", n);
 }
 void Eventloop::HandleReading(int fd){
     uint64_t one = 1;
     int n = ::read(_eventfd, &one, sizeof one);
     if(n != sizeof one)
-        cout << "reads " << n <<" bytes instead of 8\n";
+        printf("reads %d bytes instead of 8\n", n);
 }
 void Eventloop::HandleWriting(int fd){}
 
@@ -73,21 +79,25 @@ int Eventloop::CreateEventfd(){
     return fd;
 }
 
-void Eventloop::DoPendingFunctors(){
-    vector<Runner>::iterator it;
-    vector<Runner> tmp;
-    tmp.swap(_pendingFunctors);
-    for(it = tmp.begin();it != tmp.end();it++)
-        it->run();
+void Eventloop::DoPendingFunctors(){// 在多线程环境下必定是父线程来执行
+    vector<Task>::iterator it;
+    vector<Task> tmp;
+    {
+        MutexGuard lock(_mutex);
+        tmp.swap(_pendingFunctors);// 防止我这里交换的时候，有子线程往 _pendingFunctors 中添加。
+    }
+    for(it = tmp.begin();it != tmp.end();it++){
+        it->DoTask();
+    }
 }
 
-int64_t Eventloop::runAt(Timestamp when, IRun *pIRun){
+int64_t Eventloop::runAt(Timestamp when, IRun0 *pIRun){
     return _pTimerQueue->AddTimer(pIRun, when, 0.0);
 }
-int64_t Eventloop::runAfter(double delay, IRun *pIRun){
+int64_t Eventloop::runAfter(double delay, IRun0 *pIRun){
     return _pTimerQueue->AddTimer(pIRun, Timestamp::NowAfter(delay), 0.0);
 }
-int64_t Eventloop::runEvery(double interval, IRun* pIRun){
+int64_t Eventloop::runEvery(double interval, IRun0* pIRun){
     return _pTimerQueue->AddTimer(pIRun, Timestamp::NowAfter(interval), interval);
 }
 void Eventloop::cancelTimer(int64_t timerid){ _pTimerQueue->CancelTimer(timerid); }

@@ -18,16 +18,12 @@
 TimerQueue::TimerQueue(Eventloop *pEventloop) :
     _timerfd(CreateTimerfd()),
     _pEventloop(pEventloop),
-    _pTimerfdChannel(new Channel(_pEventloop, _timerfd)),   
-    _pAddTimerWrapper(new AddTimerWrapper(this)),           
-    _pCancelTimerWrapper(new CancelTimerWrapper(this))      
+    _pTimerfdChannel(new Channel(_pEventloop, _timerfd))
 {
     _pTimerfdChannel->set_callback(this);
     _pTimerfdChannel->EnableReading();
 }
 TimerQueue::~TimerQueue(){
-    delete _pCancelTimerWrapper;// new CancelTimerWrapper
-    delete _pAddTimerWrapper;// new AddTimerWrapper
     delete _pTimerfdChannel;// new Channel
 }    
 
@@ -39,14 +35,16 @@ int TimerQueue::CreateTimerfd(){
     return timerfd;
 }
 
-int64_t TimerQueue::AddTimer(IRun *pRun, Timestamp stamp, double interval)
+int64_t TimerQueue::AddTimer(IRun0 *pRun, Timestamp stamp, double interval)
 {
     Timer* pTimer = new Timer(stamp, pRun, interval);
-    _pEventloop->QueueLoop(_pAddTimerWrapper, pTimer);
+    Task task(this, "AddTimer", (void*)pTimer);
+    _pEventloop->QueueLoop(task);
     return (int64_t)pTimer;
 }
 void TimerQueue::CancelTimer(int64_t timerid){
-    _pEventloop->QueueLoop(_pCancelTimerWrapper, (void*)timerid);
+    Task task(this, "CancelTimer", (void*)timerid);
+    _pEventloop->QueueLoop(task);
 }
 void TimerQueue::DoCancelTimer(void *param){
     Timer *pTimer = static_cast<Timer*> (param);
@@ -117,7 +115,7 @@ void TimerQueue::HandleReading(int fd){
 
     vector<Entry>::iterator it = vExpired.begin();
     for(; it != vExpired.end(); ++it)
-        it->second->run();// 这里执行的是 Timer::run(){ _pRun->run(this); } 也就是会调用 用户自己写的 run 方法
+        it->second->run();// 这里执行的是 Timer::run(){ _pRun->run0(); } 也就是会调用 用户自己写的 run0 方法
     reset(vExpired, now);// 如果在 vExpired 中有 Timer 是间隔定时的则需要重新加入到 TimerQueue 中，并重置下 timerfd 
 }
 void TimerQueue::HandleWriting(int fd){}
@@ -136,4 +134,10 @@ void TimerQueue::reset(const vector<Entry> &vi, Timestamp stamp){
         nextExpire = _timers.begin()->second->stamp();
     if(nextExpire.valid())
         ResetTimerfd(nextExpire);
+}
+void TimerQueue::run2(const string &str, void *pTimer){
+    if(str == "AddTimer")
+        DoAddTimer(pTimer);
+    else if(str == "CancelTimer")
+        DoCancelTimer(pTimer); 
 }

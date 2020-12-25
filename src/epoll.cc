@@ -1,6 +1,7 @@
 #include "epoll.h"
 
 #include <sys/epoll.h>
+#include <map>
 #include "channel.h"
 Epoll::Epoll(){
     _epollfd = epoll_create(1);
@@ -24,7 +25,7 @@ void Epoll::Update(Channel *pChannel, int ep_op){
 void Epoll::Poll(vector<Channel*> &channels){
     int num = epoll_wait(_epollfd, _events, MAXEVENTS, -1);
     if(num < 0)
-        ::perror("epoll_wait return < 0");
+        printf("epoll_wait return < 0");
     for(int i = 0;i < num;i++){
         Channel *pChannel = static_cast<Channel*> (_events[i].data.ptr);
         channels.push_back(pChannel);

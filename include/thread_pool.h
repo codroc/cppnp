@@ -4,21 +4,21 @@
 #include "blocking_queue.h"
 #include "thread.h"
 #include <vector>
+class Task;
 using namespace std;
-class ThreadPool : public IRun{
+class ThreadPool : public IRun0{
 public:
-    ThreadPool(int);
+    ThreadPool();
 
-    void Start();
-    void AddTask(IRun*);
-    
+    void Start(int);
+    void AddTask(Task &);
 
-    virtual void run(void*);
+    virtual void run0();
 
 private:
     void __RunInThread();
-    const int _kMaxThreadNum;
-    BlockingQueue<IRun*> _taskqueue;
+    int _kMaxThreadNum;
+    BlockingQueue<Task> _taskqueue;
     vector<Thread*> _threads;
 };
 

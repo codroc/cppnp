@@ -1,6 +1,7 @@
 #ifndef CPPNP_BUFFER_H_
 #define CPPNP_BUFFER_H_ 
-
+#include <string>
+#include "mutex.h"
 class Buffer{
 public:
     Buffer();
@@ -8,12 +9,13 @@ public:
 
     bool IsEmpty();
     const char* str();
-    void Append(const char*, int);
+    void Append(const std::string&);
     int Write(int);
+    std::string ReadAsString();
     int len();
 private:
-    int _len;
-    char *_pBuf;
+//    Mutex _mutex;
+    std::string _buf;
 };
 
 #endif // CPPNP_BUFFER_H_

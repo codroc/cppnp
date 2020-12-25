@@ -7,16 +7,16 @@
 using namespace std;
 class Thread{
 public:
-    explicit Thread(IRun*, const string&);
+    explicit Thread(IRun0*, const string&);
     ~Thread();
 
     void Start();
     void Run();
     void Join();
-    pid_t gettid const ();
+    pid_t gettid() const ;
 private:
     pthread_t _t;
-    IRun *_pIRun;
+    IRun0 *_pIRun;
     bool _started;
     bool _joined;
     const string _name;
