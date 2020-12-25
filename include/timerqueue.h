@@ -33,23 +33,6 @@ public:
         double _interval; // seconds
     };
 
-//    class AddTimerWrapper : public IRun{
-//    public:
-//        AddTimerWrapper(TimerQueue* pTimerQueue) :
-//            _pTimerQueue(pTimerQueue){}
-//        virtual void run(void *param){ _pTimerQueue->DoAddTimer(param); }
-//    private:
-//        TimerQueue *_pTimerQueue;
-//    };
-//
-//    class CancelTimerWrapper : public IRun{
-//    public:
-//        CancelTimerWrapper(TimerQueue* pTimerQueue) :
-//            _pTimerQueue(pTimerQueue){}
-//        virtual void run(void *param){ _pTimerQueue->DoCancelTimer(param); }
-//    private:
-//        TimerQueue *_pTimerQueue;
-//    };
     TimerQueue(Eventloop*);
     ~TimerQueue();
     void DoAddTimer(void *param);

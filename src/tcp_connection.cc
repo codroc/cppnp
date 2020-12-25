@@ -47,21 +47,13 @@ void TcpConnection::HandleReading(int fd){
     if((readnum = read(fd, buf, kMaxBufSize)) < 0){
         printf("readnum < 0 error!\n");
         // 如果 errno 不是 EAGAIN 和 EINTR，那么就是对方异常断开连接
-//#ifdef MUTITHREAD 
         if(errno != EAGAIN || errno != EINTR)
             _theothersideisclosed = true;
-//#else 
-//        if(errno != EAGAIN || errno != EINTR)
-//            rund();
-//#endif
     }
     else if(readnum == 0){
         // 对方正常调用 close 断开连接
         //printf("The other side closed!\n");
         _theothersideisclosed = true;
-//#else 
-//        rund();
-//#endif
     }
     else{
         _inputbuf->Append(string(buf, readnum));
