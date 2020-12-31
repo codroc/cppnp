@@ -21,7 +21,7 @@ void EchoServer::Start(){
     _ptcp_sv->Start(); 
     _timer = _pEventloop->runEvery(1, this);
 #ifdef MUTITHREAD
-    _threadpool.Start(5);
+    _threadpool.Start(3);
 #endif
 }
 
@@ -49,7 +49,7 @@ void EchoServer::OnWriteComplete(TcpConnection *pConn){
 void EchoServer::run0(){
     printf("_index = %d\n", _index);
     _index++;
-    if(_index >= 60){
+    if(_index >= 1000){
         _pEventloop->cancelTimer(_timer);
         _index = 0;
         _pEventloop->Quit();

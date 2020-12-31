@@ -16,7 +16,7 @@ set(SOURCES
     src/eventloop.cc 
     src/acceptor.cc 
     src/tcp_server.cc 
-    examples/echo_sv.cc 
+    examples/http_sv.cc 
     src/main.cc 
 )
 
