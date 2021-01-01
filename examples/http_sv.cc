@@ -10,8 +10,11 @@
 #include "tcp_server.h"
 #include "buffer.h"
 #include "task.h"
+#include "timestamp.h"
 #include <cstdio>
 using namespace std;
+
+map<TcpConnection*, HttpConnection*> HttpServer::_HttpConnections;
 
 HttpServer::HttpServer(Eventloop *pEventloop, unsigned short port=80){
     _ptcp_sv = new TcpServer(port, pEventloop);
@@ -62,13 +65,6 @@ const string HttpServer::unimplemented()
     return response;
 }
 
-string::size_type HttpServer::SplitString(const string &request, string::size_type pos_s, const string &split_char, string &ret_str){
-    if(pos_s == string::npos) return string::npos;
-    string::size_type pos_e = request.find(split_char, pos_s);
-    if(string::npos != pos_e)
-        ret_str = request.substr(pos_s, pos_e - pos_s);
-    return pos_e;
-}
 const string HttpServer::badrequest(){
     char buf[1024];
     string response;
@@ -135,6 +131,15 @@ const string HttpServer::cannot_execute()
 
     return response;
 }
+
+string::size_type HttpServer::SplitString(const string &request, string::size_type pos_s, const string &split_char, string &ret_str){
+    if(pos_s == string::npos) return string::npos;
+    string::size_type pos_e = request.find(split_char, pos_s);
+    if(string::npos != pos_e)
+        ret_str = request.substr(pos_s, pos_e - pos_s);
+    return pos_e;
+}
+
 const string HttpServer::execute_cgi(const string &path, const string &method, const string &httpV, const string &query_string){
     string response;
     response.append(httpV);
@@ -194,7 +199,43 @@ const string HttpServer::execute_cgi(const string &path, const string &method, c
     }
     return response;
 }
-const string HttpServer::Core(const string &request){  
+const string HttpServer::serve_file(const char *filename, string &httpV)
+{
+    string response;
+    FILE *resource = NULL;
+    char buf[1024];
+
+    resource = fopen(filename, "r");
+    if (resource == NULL)
+        return not_found();
+    else
+    {
+        response.append(httpV);
+        response.append(" 200 OK\r\n");
+        response.append(SERVER_STRING);
+        response.append("Content-Type: text/html\r\n");
+        response.append("\r\n");
+        response.append(cat(resource));
+    }
+    fclose(resource);
+    return response;
+}
+const string HttpServer::cat(FILE *resource)
+{
+    char buf[1024];
+    string response;
+    fgets(buf, sizeof(buf), resource);
+    while (!feof(resource))
+    {
+        response.append(buf);
+        fgets(buf, sizeof(buf), resource);
+    }
+
+    return response;
+}
+
+// 子线程会来执行 Core 
+const string HttpServer::Core(HttpConnection *HttpConn, const string &request){  
     struct stat st;
     int cgi = 0;
     string path(WWW_PATH);
@@ -226,6 +267,18 @@ const string HttpServer::Core(const string &request){
     if(httpV != "HTTP/1.0" && httpV != "HTTP/1.1"){
         printf("badreques: %s\n", httpV.c_str());
         return badrequest();
+    }
+    else if(httpV == "HTTP/1.0"){
+        HttpConn->setHttpProtocalVersion(0);
+    // 查看 Connection 字段，如果存在且为 keep-alive 则设置成长链接
+        if(isKeepAlive(request))
+            HttpConn->setLongConnection();
+        else
+            HttpConn->setShortConnection();
+    }
+    else{// HTTP/1.1
+        HttpConn->setHttpProtocalVersion(1);
+        HttpConn->setLongConnection();
     }
 
     if(method == "POST"){
@@ -264,54 +317,43 @@ const string HttpServer::Core(const string &request){
             return execute_cgi(path, method, httpV, query_string);
     }
 }
-const string HttpServer::serve_file(const char *filename, string &httpV)
-{
-    string response;
-    FILE *resource = NULL;
-    char buf[1024];
-
-    resource = fopen(filename, "r");
-    if (resource == NULL)
-        return not_found();
-    else
-    {
-        response.append(httpV);
-        response.append(" 200 OK\r\n");
-        response.append(SERVER_STRING);
-        response.append("Content-Type: text/html\r\n");
-        response.append("\r\n");
-        response.append(cat(resource));
-    }
-    return response;
-}
-const string HttpServer::cat(FILE *resource)
-{
-    char buf[1024];
-    string response;
-    fgets(buf, sizeof(buf), resource);
-    while (!feof(resource))
-    {
-        response.append(buf);
-        fgets(buf, sizeof(buf), resource);
-    }
-
-    return response;
-}
 
 void HttpServer::OnMessage(TcpConnection *pConn, Buffer *buf){
     printf("OnMessage\n");
+    HttpConnection *pHttpConn;
+    map<TcpConnection*, HttpConnection*>::iterator it = _HttpConnections.find(pConn);
+    if(it == _HttpConnections.end()){
+        pHttpConn = new HttpConnection(pConn);
+        pHttpConn->setpEventloop(_pEventloop);
+        _HttpConnections.insert(pair<TcpConnection*, HttpConnection*> (pConn, pHttpConn));
+    }
+    else pHttpConn = it->second;
+    pHttpConn->addCount();// 请求数 +1 
     string request = buf->ReadAsString();
 #ifdef MUTITHREAD
-    Task task(this, request, pConn);
+    Task task(this, request, pHttpConn); // 子线程会去执行 HttpServer::run2()  第三个参数是执行 HttpConnection 的指针
     _threadpool.AddTask(task);
 #else
-    const string response = Core(request);
-    pConn->Send(response);
+    const string response = Core(pHttpConn, request);
+    pHttpConn->Send(response);
 #endif
 }
+// 当一个相应发送完毕时，肯定会来调用 OnWriteComplete，此时如果是长连接则设置定时器，如果时短链接则断开。
 void HttpServer::OnWriteComplete(TcpConnection *pConn){
     printf("WriteCompleted!\n");
+    map<TcpConnection*, HttpConnection*>::iterator it = _HttpConnections.find(pConn);
+    HttpConnection *pHttpConn = it->second;
+    if(!pHttpConn->isOnTiming() && pHttpConn->isLongConnection()){// 如果是长链接并且没在计时
+        pHttpConn->delCount();// 请求记录清零
+        _pEventloop->runAfter(0.5, pHttpConn);
+    }
+    else if(!pHttpConn->isLongConnection()){
+        pHttpConn->closeConnection();
+        _HttpConnections.erase(it);
+        delete pHttpConn;
+    }
 }
+
 void HttpServer::run0(){
     printf("_index = %d\n", _index);
     _index++;
@@ -321,7 +363,32 @@ void HttpServer::run0(){
         _pEventloop->Quit();
     }
 }
-void HttpServer::run2(const string &request, void *pCon){
-    const string response = Core(request);
-    static_cast<TcpConnection*>(pCon)->Send(response);
+void HttpServer::run2(const string &request, void *pConn){
+    HttpConnection *HttpConn = static_cast<HttpConnection*>(pConn);
+    const string response = Core(HttpConn, request);
+    HttpConn->Send(response);
+}
+
+bool HttpServer::isKeepAlive(const string &request){
+    string::size_type pos = request.find("Connection:");
+    if(string::npos == pos) return false;
+    pos = request.find("keep-alive", pos + 1);
+    if(string::npos == pos) return false;
+    else return true;
+}
+
+// 定时器到时来执行
+void HttpConnection::run0(){
+    disOnTiming();
+    if(!isLongConnection() || Count() == 0){
+        closeConnection(); 
+        map<TcpConnection*, HttpConnection*>::iterator it = HttpServer::_HttpConnections.find(_pConn);
+        HttpServer::_HttpConnections.erase(it);
+        delete this;
+    }
+    else{
+        delCount();
+        _pEventloop->runAfter(1.5, this);
+        enableOnTiming();
+    }
 }

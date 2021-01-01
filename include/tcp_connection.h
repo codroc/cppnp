@@ -31,9 +31,12 @@ public:
     void EnableReading();
     void EnableWriting();
     void DisableWriting();
+    void DisableReading();
 
     void ConnectionEstablished();
     void rund();// 删除 TcpConnection
+
+    void closeConnection();
 private:
     void SendInMainThread();
     Eventloop *_pEventloop;

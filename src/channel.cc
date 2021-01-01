@@ -37,7 +37,7 @@ void Channel::DisableWriting(){
     Update(EP_MOD);
 }
 void Channel::DisableReading(){
-    _events = 0;
+    _events &= ~EPOLLIN;
     Update(EP_MOD);
 }
 void Channel::HandleEvent(){

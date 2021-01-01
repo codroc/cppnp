@@ -87,9 +87,10 @@ void TcpConnection::SendInMainThread(){
 }
 void TcpConnection::rund(){
     map<int, TcpConnection*>::iterator it = _pmp->find(_pSockChannel->fd());
-    if(it != _pmp->end())
+    if(it != _pmp->end()){
         _pmp->erase(it);
-    delete it->second;
+        delete it->second;
+    }
 }
 void TcpConnection::run0(){ _pcppnp_usr->OnWriteComplete(this); _pacCount--;}// 发送完成 _pacCount--
 void TcpConnection::run2(const string &msg, void *param){ // 在多线程环境下必定是父线程来执行 run2
@@ -105,6 +106,10 @@ void TcpConnection::Send(const string &data){// 在多线程环境下必定是�
 void TcpConnection::EnableReading(){ _pSockChannel->EnableReading(); }
 void TcpConnection::EnableWriting(){ _pSockChannel->EnableWriting(); }
 void TcpConnection::DisableWriting() { _pSockChannel->DisableWriting(); }
+void TcpConnection::DisableReading() { _pSockChannel->DisableReading(); }
 void TcpConnection::ConnectionEstablished() { _theothersideisclosed = false;_pcppnp_usr->OnConnection(this); }
 
-
+void TcpConnection::closeConnection() { 
+    DisableReading(); _theothersideisclosed = true; 
+    if(_theothersideisclosed && !_pacCount) rund();
+}
