@@ -8,7 +8,7 @@
 
 #include <string>
 #include <map>
-using namespace std;
+#include <new>
 class Eventloop;
 class Channel;
 class Buffer;
@@ -24,17 +24,15 @@ public:
     virtual void HandleWriting(int);
 
     virtual void run0();
-    virtual void run2(const string&, void*);
+    virtual void run2(const std::string&, void*);
 
-    void Send(const string&);
+    void Send(const std::string&);
     void set_usr(ICppnpUsr *);
     void EnableReading();
     void EnableWriting();
     void DisableWriting();
-    void DisableReading();
 
-    void ConnectionEstablished();
-    void rund();// 删除 TcpConnection
+    void ConnectionEstablished();// 这里应该要记录连进来的主机的ip和端口号
 
     void closeConnection();
 private:
@@ -47,12 +45,9 @@ private:
     Buffer *_outputbuf;
     Buffer *_inputbuf;
 
-    // 用于多线程处理链接断开时 TcpConnection 对象销毁所用
-    bool _theothersideisclosed;
-    int _pacCount;
 public:
     // 用于记录已建立链接的 TcpConnection
-    static map<int, TcpConnection*>* _pmp;
+    static map<int, std::shared_ptr<TcpConnection>>* _pmp;
 };
 
 

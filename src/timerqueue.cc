@@ -8,13 +8,14 @@
 #include <stdio.h>
 #include <string.h>
 
+#include <memory>
+#include <set>
 #include "channel.h"
 #include "eventloop.h"
 #include "timestamp.h"
 
-#include <set>
 
-
+extern TimerQueueObserver global_timerqueue_observer;
 TimerQueue::TimerQueue(Eventloop *pEventloop) :
     _timerfd(CreateTimerfd()),
     _pEventloop(pEventloop),
@@ -38,12 +39,13 @@ int TimerQueue::CreateTimerfd(){
 int64_t TimerQueue::AddTimer(IRun0 *pRun, Timestamp stamp, double interval)
 {
     Timer* pTimer = new Timer(stamp, pRun, interval);
-    Task task(this, "AddTimer", (void*)pTimer);
+    regist_sp(pTimer);// 由 _spmp_timer 来管理 shared_ptr
+    Task task(weak_ptr<TimerQueue>(global_timerqueue_observer.get_sp()), "AddTimer", weak_ptr<Timer>(_spmp_timer.find((int64_t)pTimer)->second));
     _pEventloop->QueueLoop(task);
     return (int64_t)pTimer;
 }
 void TimerQueue::CancelTimer(int64_t timerid){
-    Task task(this, "CancelTimer", (void*)timerid);
+    Task task(weak_ptr<TimerQueue>(global_timerqueue_observer.get_sp()), "CancelTimer", weak_ptr<Timer>(_spmp_timer.find(timerid)->second));
     _pEventloop->QueueLoop(task);
 }
 void TimerQueue::DoCancelTimer(void *param){
@@ -51,7 +53,7 @@ void TimerQueue::DoCancelTimer(void *param){
     TimerList::iterator it;
     for(it = _timers.begin(); it != _timers.end();++it){
         if(it->second == pTimer){
-            delete it->second;//new pTimer;
+            unregist_sp(pTimer);
             _timers.erase(it);
             break;
         }
@@ -140,4 +142,9 @@ void TimerQueue::run2(const string &str, void *pTimer){
         DoAddTimer(pTimer);
     else if(str == "CancelTimer")
         DoCancelTimer(pTimer); 
+}
+void TimerQueue::regist_sp(Timer *pTimer){ _spmp_timer.insert(pair<int64_t, shared_ptr<Timer>> ((int64_t)pTimer, shared_ptr<Timer>(pTimer))); }
+void TimerQueue::unregist_sp(Timer *pTimer){
+    auto it = _spmp_timer.find((int64_t) pTimer);
+    _spmp_timer.erase(it);
 }

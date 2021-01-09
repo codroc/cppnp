@@ -2,7 +2,7 @@
 #define CPPNP_TCP_SERVER_H_ 
 
 #include <map>
-using namespace std;
+#include <memory>
 
 #include "i_acceptor_callback.h"
 class Eventloop;
@@ -24,7 +24,7 @@ private:
     unsigned short _port;
 
     Acceptor *_pAcceptor;
-    map<int, TcpConnection* > mp;
+    std::map<int, std::shared_ptr<TcpConnection>> mp;
 };
 
 #endif  // CPPNP_TCP_SERVER_H_

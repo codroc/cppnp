@@ -7,6 +7,7 @@
 #include "channel.h"
 #include "acceptor.h"
 #include "tcp_connection.h"
+using namespace std;
 TcpServer::TcpServer(unsigned short port, Eventloop *pEventloop) {
     _pEventloop = pEventloop;
     _pusr = NULL;
@@ -16,9 +17,9 @@ TcpServer::TcpServer(unsigned short port, Eventloop *pEventloop) {
 }
 
 TcpServer::~TcpServer(){
-    map<int, TcpConnection* >::iterator it;
+    map<int, shared_ptr<TcpConnection>>::iterator it;
     for(it = mp.begin();it != mp.end();++it)
-        delete it->second;// new TcpConnection
+        mp.erase(it);// 销毁 map 中 it 对应的 shared_ptr，当计数为 0 时，shared_ptr 会帮我们销毁对应的 TcpConnection 对象！
     delete _pAcceptor;// new Acceptor
 }
 
@@ -48,11 +49,12 @@ int TcpServer::NewConnection(){
                 ntohs(caddr.sin_port),
                 connfd);
     }
-    TcpConnection *ptcp_connection_tmp = new TcpConnection(_pEventloop, connfd);
+    shared_ptr<TcpConnection> ptcp_connection_tmp = make_shared<TcpConnection>(_pEventloop, connfd);
+    if(mp.end() == mp.find(connfd))
+        mp.insert(pair<int, shared_ptr<TcpConnection>>(connfd, ptcp_connection_tmp));
+    else printf("fd: %d has exist!\n", connfd);
+
     ptcp_connection_tmp->set_usr(_pusr);
     ptcp_connection_tmp->ConnectionEstablished();
-    if(mp.end() == mp.find(connfd))
-        mp.insert(pair<int, TcpConnection*>(connfd, ptcp_connection_tmp));
-    else printf("fd: %d has exist!\n", connfd);
     return connfd;
-}
+}// ptcp_connection_tmp 销毁；ptcp_connection_tmp 所指向的对象只有一个指向其的智能指针，在map中

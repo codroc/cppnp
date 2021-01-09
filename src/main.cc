@@ -11,8 +11,6 @@ const unsigned short port = 10000;
 int main(){
     signal(SIGPIPE, SIG_IGN);
     Eventloop loop;
-//    cout << sizeof(Eventloop) <<endl;
-//    cout << sizeof(vector<int>) << endl;
     HttpServer myhttpsv(&loop, port);
     myhttpsv.Start();
     loop.Loop();

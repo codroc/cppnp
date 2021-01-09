@@ -2,6 +2,7 @@
 #define CPPNP_TIMERQUEUE_H_ 
 #include <set>
 #include <vector>
+#include <map>
 using namespace std;
 #include "timestamp.h"
 #include "declare.h"
@@ -56,6 +57,20 @@ private:
     TimerList _timers;
     Eventloop *_pEventloop;
     Channel *_pTimerfdChannel;
+
+    std::map<int64_t, shared_ptr<Timer>> _spmp_timer;
+    void regist_sp(Timer *pTimer);
+    void unregist_sp(Timer *pTimer);
 };
 
+class TimerQueueObserver{
+public:
+    void observer(TimerQueue *p){
+        shared_ptr<TimerQueue> local_sp(p);
+        _sp = local_sp;
+    }
+    shared_ptr<TimerQueue>& get_sp(){ return _sp; }
+private:
+    shared_ptr<TimerQueue> _sp;
+};
 #endif //CPPNP_TIMERQUEUE_H_

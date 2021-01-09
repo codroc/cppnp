@@ -12,29 +12,30 @@
 #include "mutex.h"
 #include "task.h"
 using namespace std;
-map<int, TcpConnection*>* TcpConnection::_pmp;
-TcpConnection::TcpConnection(Eventloop *pEventloop, int connfd) :
+map<int, shared_ptr<TcpConnection> >* TcpConnection::_pmp;
+map<int, shared_ptr<TcpConnection>>::iterator find_tcpconnection(int fd){
+    return TcpConnection::_pmp->find(fd);
+} 
+TcpConnection::TcpConnection(Eventloop *pEventloop, int connfd) :/*{{{*/
     _pEventloop(pEventloop)
 {
     _pSockChannel = new Channel(_pEventloop, connfd);
-    _pSockChannel->set_callback(this);
+    _pSockChannel->set_callback(this);// 在构造函数期间不要把 this 指针泄漏给其他类或线程！
     _pSockChannel->EnableReading();
 
     _outputbuf = new Buffer;
     _inputbuf = new Buffer;
 
-    _theothersideisclosed = true;
-    _pacCount = 0;
-}
+}/*}}}*/
 
-TcpConnection::~TcpConnection(){
+TcpConnection::~TcpConnection(){/*{{{*/
     delete _inputbuf;// new Buffer
     delete _outputbuf;// new Buffer
     delete _pSockChannel;// new Channel
-}
+}/*}}}*/
 
 /* TcpConnection 处理读写业务 */
-void TcpConnection::HandleReading(int fd){
+void TcpConnection::HandleReading(int fd){/*{{{*/
     if(fd < 0){
         printf("fd < 0 error!\n");
         return;
@@ -45,32 +46,34 @@ void TcpConnection::HandleReading(int fd){
     memset(buf, 0, sizeof(buf));
 
     if((readnum = read(fd, buf, kMaxBufSize)) < 0){
-        printf("readnum < 0 error!\n");
         // 如果 errno 不是 EAGAIN 和 EINTR，那么就是对方异常断开连接
-        if(errno != EAGAIN || errno != EINTR)
-            _theothersideisclosed = true;
+        if(errno != EAGAIN || errno != EINTR){
+            auto it = ::find_tcpconnection(_pSockChannel->fd());
+            if(_pmp->end() != it)
+                _pmp->erase(it);
+        }
     }
     else if(readnum == 0){
-        // 对方正常调用 close 断开连接
-        //printf("The other side closed!\n");
-        _theothersideisclosed = true;
+        auto it = ::find_tcpconnection(_pSockChannel->fd());
+        if(_pmp->end() != it)
+            _pmp->erase(it);
     }
     else{
         _inputbuf->Append(string(buf, readnum));
-        _pcppnp_usr->OnMessage(this, _inputbuf);
-        _pacCount++;// 用于记录还剩几个包没发出去
+        _pcppnp_usr->OnMessage(weak_ptr<TcpConnection>(::find_tcpconnection(_pSockChannel->fd())->second), _inputbuf);
     }
-    if(_theothersideisclosed && !_pacCount) rund();
-}
+}/*}}}*/
 
 void TcpConnection::HandleWriting(int fd){
     SendInMainThread();
 }
-void TcpConnection::SendInMainThread(){
+void TcpConnection::SendInMainThread(){/*{{{*/
     int n = _outputbuf->Write(_pSockChannel->fd());
     if(n < 0){
         printf("write error! Maybe turn off by other side!\n");
-        _pacCount--;
+        auto it = ::find_tcpconnection(_pSockChannel->fd());
+        if(_pmp->end() != it)
+            _pmp->erase(it);
         // 对方关闭链接。
     }
     else if(_outputbuf->len() > 0){
@@ -80,19 +83,13 @@ void TcpConnection::SendInMainThread(){
     }
     else{
         DisableWriting();
-        Task task(this);
+        Task task(weak_ptr<TcpConnection>(::find_tcpconnection(_pSockChannel->fd())->second));
         _pEventloop->QueueLoop(task);
     }
-    if(_theothersideisclosed && !_pacCount) rund();
-}
-void TcpConnection::rund(){
-    map<int, TcpConnection*>::iterator it = _pmp->find(_pSockChannel->fd());
-    if(it != _pmp->end()){
-        _pmp->erase(it);
-        delete it->second;
-    }
-}
-void TcpConnection::run0(){ _pcppnp_usr->OnWriteComplete(this); _pacCount--;}// 发送完成 _pacCount--
+}/*}}}*/
+void TcpConnection::run0(){ 
+    _pcppnp_usr->OnWriteComplete(weak_ptr<TcpConnection>(::find_tcpconnection(_pSockChannel->fd())->second));
+} 
 void TcpConnection::run2(const string &msg, void *param){ // 在多线程环境下必定是父线程来执行 run2
     _outputbuf->Append(msg);
     SendInMainThread(); 
@@ -100,16 +97,19 @@ void TcpConnection::run2(const string &msg, void *param){ // 在多线程环境�
 
 void TcpConnection::set_usr(ICppnpUsr *usr) { _pcppnp_usr = usr; }
 void TcpConnection::Send(const string &data){// 在多线程环境下必定是子线程来执行 Send
-    Task task(this, data, this);
+    Task task(weak_ptr<TcpConnection>(::find_tcpconnection(_pSockChannel->fd())->second), data, weak_ptr<TcpConnection>(::find_tcpconnection(_pSockChannel->fd())->second));
     _pEventloop->QueueLoop(task);
 }
 void TcpConnection::EnableReading(){ _pSockChannel->EnableReading(); }
 void TcpConnection::EnableWriting(){ _pSockChannel->EnableWriting(); }
 void TcpConnection::DisableWriting() { _pSockChannel->DisableWriting(); }
-void TcpConnection::DisableReading() { _pSockChannel->DisableReading(); }
-void TcpConnection::ConnectionEstablished() { _theothersideisclosed = false;_pcppnp_usr->OnConnection(this); }
+void TcpConnection::ConnectionEstablished() { 
+    _pcppnp_usr->OnConnection(weak_ptr<TcpConnection>(::find_tcpconnection(_pSockChannel->fd())->second)); 
+}
 
+// 主动关闭连接
 void TcpConnection::closeConnection() { 
-    DisableReading(); _theothersideisclosed = true; 
-    if(_theothersideisclosed && !_pacCount) rund();
+    auto it = ::find_tcpconnection(_pSockChannel->fd());
+    if(_pmp->end() != it)
+        _pmp->erase(it);// 销毁 shared_ptr 对象，计数为 0 时销毁 TcpConnection 对象
 }

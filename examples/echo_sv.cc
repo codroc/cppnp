@@ -7,7 +7,7 @@
 #include "task.h"
 EchoServer::EchoServer(Eventloop *pEventloop, unsigned short port=80){
     _ptcp_sv = new TcpServer(port, pEventloop);
-    _ptcp_sv->set_usr(this);
+    _ptcp_sv->set_usr(this);// 不能把自己的 this 暴露给其他类或线程！
     _pEventloop = pEventloop;
     _timer = -1;
     _index = 0;
@@ -25,25 +25,26 @@ void EchoServer::Start(){
 #endif
 }
 
-void EchoServer::OnConnection(TcpConnection*){
+void EchoServer::OnConnection(weak_ptr<TcpConnection> pConn){
     printf("OnConnection!\n");
 }
 const string EchoServer::Core(Buffer *buf){  
     string response = buf->ReadAsString();
     return response;
 }
-void EchoServer::OnMessage(TcpConnection *pConn, Buffer *buf){
+void EchoServer::OnMessage(weak_ptr<TcpConnection> pConn, Buffer *buf){
     printf("OnMessage\n");
     const string response = Core(buf);
 #ifdef MUTITHREAD
-    Task task(this, response, pConn);
+    Task task(weak_ptr<EchoServer>(shared_ptr<EchoServer>(this, [](EchoServer*){})), response, pConn);
     _threadpool.AddTask(task);
 #else
     printf("#######################fib = %ld tid = %d\n",EchoServer::Fib(30), CurrentThread::tid());
-    pConn->Send(response);
+    shared_ptr<TcpConnection> sp_pConn = pConn.lock();
+    sp_pConn->Send(response);
 #endif
 }
-void EchoServer::OnWriteComplete(TcpConnection *pConn){
+void EchoServer::OnWriteComplete(weak_ptr<TcpConnection> pConn){
     printf("WriteCompleted!\n");
 }
 void EchoServer::run0(){

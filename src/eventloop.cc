@@ -13,10 +13,12 @@
 #include "timestamp.h"
 #include "timerqueue.h"
 using namespace std;
+TimerQueueObserver global_timerqueue_observer;
 Eventloop::Eventloop(){
     _quit = false;
     _pEpoll = new Epoll;
     _pTimerQueue = new TimerQueue(this);
+    global_timerqueue_observer.observer(_pTimerQueue);
 
     _eventfd = CreateEventfd();
     _pEventfdChannel = new Channel(this, _eventfd);
@@ -26,7 +28,6 @@ Eventloop::Eventloop(){
 }
 Eventloop::~Eventloop(){
     delete _pEventfdChannel;// new Channel
-    delete _pTimerQueue;// new TimerQueue
     delete _pEpoll;// new Epoll
 }
 

@@ -3,6 +3,7 @@
 
 #include <string>
 #include <map>
+#include <memory>
 #include "i_cppnp_usr.h"
 #include "i_run.h"
 #include "declare.h"
@@ -36,9 +37,9 @@ public:
 
     bool isKeepAlive(const string &);
 
-    virtual void OnConnection(TcpConnection *);
-    virtual void OnMessage(TcpConnection *, Buffer *); 
-    virtual void OnWriteComplete(TcpConnection *);
+    virtual void OnConnection(weak_ptr<TcpConnection>);
+    virtual void OnMessage(weak_ptr<TcpConnection>, Buffer *); 
+    virtual void OnWriteComplete(weak_ptr<TcpConnection> );
 
     virtual void run0();
     virtual void run2(const string&, void*);
@@ -50,6 +51,7 @@ private:
     int64_t _timer;
     int _index;
 
+    shared_ptr<HttpServer> _sp_self;
 private:
     std::string::size_type SplitString(const std::string &, std::string::size_type, const std::string &, std::string &);
     const std::string unimplemented();
@@ -60,12 +62,12 @@ private:
     const std::string serve_file(const char *, std::string &);
     const std::string cat(FILE *);
 public:
-    static std::map<TcpConnection*, HttpConnection*> _HttpConnections;
+    static std::map<weak_ptr<TcpConnection>, shared_ptr<HttpConnection>> _HttpConnections;
 };
 
 class HttpConnection : public IRun0{
 public:
-    HttpConnection(TcpConnection *pConn) :
+    HttpConnection(weak_ptr<TcpConnection> pConn) :
         _pConn(pConn),
         _httpProtocalVersion(-1),
         _islongconnection(false),
@@ -75,7 +77,8 @@ public:
     ~HttpConnection(){}
 
     void Send(const string &response){
-        _pConn->Send(response);
+        if(shared_ptr<TcpConnection> local_sp = _pConn.lock())
+            local_sp->Send(response);
     }
     void setLongConnection(){ _islongconnection = true; }
     void setShortConnection() { _islongconnection = false; }
@@ -95,15 +98,16 @@ public:
     virtual void run0();
 
     void closeConnection() {
-        _pConn->closeConnection();
-        printf("Connection Closed!\n");
+        if(shared_ptr<TcpConnection> local_sp = _pConn.lock())
+            local_sp->closeConnection();
+        //printf("Connection Closed!\n");
     }
 
     void setpEventloop(Eventloop *pEventloop) { _pEventloop = pEventloop; }
 
 private:
     Eventloop *_pEventloop;
-    TcpConnection *_pConn;
+    weak_ptr<TcpConnection> _pConn;
     int _httpProtocalVersion;// -1 表示初始化状态  0：HTTP/1.0  1：HTTP/1.1
     bool _islongconnection;
 

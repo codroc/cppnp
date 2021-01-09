@@ -12,9 +12,13 @@
 #include "task.h"
 #include "timestamp.h"
 #include <cstdio>
+#include <memory>
 using namespace std;
 
-map<TcpConnection*, HttpConnection*> HttpServer::_HttpConnections;
+bool operator<(const weak_ptr<TcpConnection> &lhs, const weak_ptr<TcpConnection> &rhs){
+    return lhs.lock().get() < rhs.lock().get();
+}
+map<weak_ptr<TcpConnection>, shared_ptr<HttpConnection>> HttpServer::_HttpConnections;
 
 HttpServer::HttpServer(Eventloop *pEventloop, unsigned short port=80){
     _ptcp_sv = new TcpServer(port, pEventloop);
@@ -22,6 +26,8 @@ HttpServer::HttpServer(Eventloop *pEventloop, unsigned short port=80){
     _pEventloop = pEventloop;
     _timer = -1;
     _index = 0;
+    shared_ptr<HttpServer> local_sp(this);
+    _sp_self = local_sp;
 }
 
 HttpServer::~HttpServer(){
@@ -30,13 +36,14 @@ HttpServer::~HttpServer(){
 
 void HttpServer::Start(){ 
     _ptcp_sv->Start(); 
+    _pEventloop->runEvery(1, this);
 #ifdef MUTITHREAD
-    _threadpool.Start(3);
+    _threadpool.Start(1);
 #endif
 }
 
-void HttpServer::OnConnection(TcpConnection*){
-    printf("OnConnection!\n");
+void HttpServer::OnConnection(weak_ptr<TcpConnection>){
+    //printf("OnConnection!\n");
 }
 
 
@@ -172,7 +179,7 @@ const string HttpServer::execute_cgi(const string &path, const string &method, c
 
         sprintf(method_env, "REQUEST_METHOD=%s", method.c_str());
         sprintf(query_env, "QUERY_STRING=%s", query_string.c_str());
-        sprintf(length_env, "CONTENT_LENGTH=%d", query_string.size());
+        sprintf(length_env, "CONTENT_LENGTH=%ld", query_string.size());
         putenv(method_env);
         putenv(query_env);
         putenv(length_env);
@@ -318,44 +325,43 @@ const string HttpServer::Core(HttpConnection *HttpConn, const string &request){
     }
 }
 
-void HttpServer::OnMessage(TcpConnection *pConn, Buffer *buf){
-    printf("OnMessage\n");
-    HttpConnection *pHttpConn;
-    map<TcpConnection*, HttpConnection*>::iterator it = _HttpConnections.find(pConn);
+void HttpServer::OnMessage(weak_ptr<TcpConnection> pConn, Buffer *buf){
+    //printf("OnMessage\n");
+    map<weak_ptr<TcpConnection>, shared_ptr<HttpConnection>>::iterator it = _HttpConnections.find(pConn);
+    shared_ptr<HttpConnection> pHttpConn;
     if(it == _HttpConnections.end()){
-        pHttpConn = new HttpConnection(pConn);
+        pHttpConn = make_shared<HttpConnection>(pConn);// 相当于 new HttpConnection
         pHttpConn->setpEventloop(_pEventloop);
-        _HttpConnections.insert(pair<TcpConnection*, HttpConnection*> (pConn, pHttpConn));
+        _HttpConnections.insert(pair<weak_ptr<TcpConnection>, shared_ptr<HttpConnection>> (pConn, pHttpConn));
     }
     else pHttpConn = it->second;
     pHttpConn->addCount();// 请求数 +1 
     string request = buf->ReadAsString();
 #ifdef MUTITHREAD
-    Task task(this, request, pHttpConn); // 子线程会去执行 HttpServer::run2()  第三个参数是执行 HttpConnection 的指针
+    Task task(weak_ptr<HttpServer>(_sp_self), request, weak_ptr<HttpConnection>(pHttpConn)); // 子线程会去执行 HttpServer::run2()  第三个参数是执行 HttpConnection 的指针
     _threadpool.AddTask(task);
 #else
-    const string response = Core(pHttpConn, request);
+    const string response = Core(pHttpConn.get(), request);
     pHttpConn->Send(response);
 #endif
 }
 // 当一个相应发送完毕时，肯定会来调用 OnWriteComplete，此时如果是长连接则设置定时器，如果时短链接则断开。
-void HttpServer::OnWriteComplete(TcpConnection *pConn){
-    printf("WriteCompleted!\n");
-    map<TcpConnection*, HttpConnection*>::iterator it = _HttpConnections.find(pConn);
-    HttpConnection *pHttpConn = it->second;
+void HttpServer::OnWriteComplete(weak_ptr<TcpConnection> pConn){
+//    printf("WriteCompleted!\n");
+    map<weak_ptr<TcpConnection>, shared_ptr<HttpConnection>>::iterator it = _HttpConnections.find(pConn);
+    shared_ptr<HttpConnection> pHttpConn = it->second;
     if(!pHttpConn->isOnTiming() && pHttpConn->isLongConnection()){// 如果是长链接并且没在计时
-        pHttpConn->delCount();// 请求记录清零
-        _pEventloop->runAfter(0.5, pHttpConn);
+//        printf("set 定时器\n");
+        _pEventloop->runAfter(3, pHttpConn.get());
     }
     else if(!pHttpConn->isLongConnection()){
         pHttpConn->closeConnection();
         _HttpConnections.erase(it);
-        delete pHttpConn;
     }
-}
+}// 如果执行了 closeConnection 那么出这个 scope 时 HttpConnection 就会自动销毁, 此时 TcpConnection 已经销毁了！
 
 void HttpServer::run0(){
-    printf("_index = %d\n", _index);
+    //printf("_index = %d\n", _index);
     _index++;
     if(_index >= 1000){
         _pEventloop->cancelTimer(_timer);
@@ -377,18 +383,18 @@ bool HttpServer::isKeepAlive(const string &request){
     else return true;
 }
 
-// 定时器到时来执行
+// 定时器到时来执行, 此时对方可能已经断开连接了
 void HttpConnection::run0(){
+//    printf("http 定时器\n");
     disOnTiming();
-    if(!isLongConnection() || Count() == 0){
-        closeConnection(); 
-        map<TcpConnection*, HttpConnection*>::iterator it = HttpServer::_HttpConnections.find(_pConn);
+    if(_pConn.expired() || Count() == 0){
+        map<weak_ptr<TcpConnection>, shared_ptr<HttpConnection>>::iterator it = HttpServer::_HttpConnections.find(_pConn);
+        closeConnection();// 会判断 TcpConnection 对象是否还存在 
         HttpServer::_HttpConnections.erase(it);
-        delete this;
     }
     else{
         delCount();
-        _pEventloop->runAfter(1.5, this);
+        _pEventloop->runAfter(3, this);
         enableOnTiming();
     }
 }

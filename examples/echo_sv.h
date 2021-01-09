@@ -19,9 +19,9 @@ public:
 
     void Start();
     const string Core(Buffer*);
-    virtual void OnConnection(TcpConnection *);
-    virtual void OnMessage(TcpConnection *, Buffer *); 
-    virtual void OnWriteComplete(TcpConnection *);
+    virtual void OnConnection(weak_ptr<TcpConnection>);
+    virtual void OnMessage(weak_ptr<TcpConnection>, Buffer *); 
+    virtual void OnWriteComplete(weak_ptr<TcpConnection>);
 
     virtual void run0();
     virtual void run2(const string&, void*);

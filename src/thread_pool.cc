@@ -28,8 +28,8 @@ void ThreadPool::run0(){
 }
 void ThreadPool::__RunInThread(){
     while(true){
-        printf("tid = %d start work!\n", CurrentThread::tid());
+//        printf("tid = %d start work!\n", CurrentThread::tid());
         _taskqueue.Get().DoTask();
-        printf("tid = %d finished work!\n", CurrentThread::tid());
+//        printf("tid = %d finished work!\n", CurrentThread::tid());
     }
 }
